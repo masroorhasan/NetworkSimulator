@@ -21,7 +21,10 @@ class ABP_SIMULATOR
 
 		int get_sn();
 		int get_rn();
-		double get_rtt();
+		double get_tc();
+
+		int update_state(int);
+		void clear_state();
 	private:
 		//sender
 		int sequence_numer;
@@ -36,6 +39,7 @@ class ABP_SIMULATOR
 		int frame_error;		//0: prob with BER, 1: prob with 1-BER
 		int ack_error;			//0: prob with BER, 1: prob with 1-BER
 		bool pckt_lost; 		//NIL if pckt lost
+		bool ack_lost;
 		int channel_capacity;	//c
 		double ber; 			//bit error rate
 
@@ -70,6 +74,7 @@ ABP_SIMULATOR::ABP_SIMULATOR(double delta, int header, int length, double c, dou
 {
 	//sender
 	sequence_numer = 0;
+	next_expected_ack = (sequence_numer + 1) % 2;
 	current_time = 0.0;
 	buffer.resize(1);
 
@@ -91,10 +96,10 @@ int ABP_SIMULATOR::get_sn()
 
 int ABP_SIMULATOR::get_rn()
 {
-	return next_expected_frame; //??
+	return next_expected_frame; 
 }
 
-double ABP_SIMULATOR::get_rtt()
+double ABP_SIMULATOR::get_tc()
 {
 	return current_time;
 }
@@ -102,7 +107,7 @@ double ABP_SIMULATOR::get_rtt()
 void ABP_SIMULATOR::sender()
 {
 	// current_time = 0.0;
-	next_expected_ack = (sequence_numer + 1) % 2;
+	// next_expected_ack = (sequence_numer + 1) % 2;
 
 	//generate packet to put on frame
 	data_frame = new frame();
@@ -114,19 +119,24 @@ void ABP_SIMULATOR::sender()
 	if(buffer.empty())
 		buffer.push_front(sequence_numer);
 
-	current_time += ((double)((pckt_header + pckt_length)*8) / (double)channel_capacity);
+	// current_time += ((double)((pckt_header + pckt_length)*8) / (double)channel_capacity);
 }
 
 double ABP_SIMULATOR::channel(int length)
 {
 	//inputs: c, tao, ber
 	//output: return time (+ prop delay) or Nil (data or ack frame was lost)
+	if(length < pckt_header + pckt_length)
+		current_time += ((double)pckt_header*8.0 / (double)channel_capacity);
+	else
+		current_time += ((double)((pckt_header + pckt_length)*8.0) / (double)channel_capacity);
+
 	int bit_error_num = 0;	
 	double channel_time = current_time;
 	frame_error = 0;
 	ack_error = 0;
 	pckt_lost = false;
-	//check length of packet in channel to see if data or ack frame
+	ack_lost = false;
 
 	int total_num_bits = (length) * 8;
 	for(int bit = 0; bit < total_num_bits; bit++)
@@ -135,39 +145,29 @@ double ABP_SIMULATOR::channel(int length)
 		double uniform_random_prob = 0.0;
 		uniform_random_prob = (((double) rand() ) / RAND_MAX);	//rv between [0,1]
 		
-		// cout << uniform_random_prob << endl;
-		
 		if(uniform_random_prob <= (1.0-ber))
-		{
-			
-			// cout << "1";
 			continue;
-		}
 		else
-		{
-			// cout << "0";
 			bit_error_num++;	//bit in error	
-		}
-
-		// cout << endl;	
 	}
 
 	// cout << bit_error_num << endl;
 
 	if(bit_error_num >= 5)
 	{
-		pckt_lost = true;
-		// cout << "pckt lost" << endl;
-		// return NULL;		//NOTE: verify this
+		//lost pckt or ack
+		if(length < pckt_header + pckt_length)
+			ack_lost = true;
+		else
+			pckt_lost = true;
 	}
 	else if(bit_error_num > 0 && bit_error_num < 5)
 	{
+		//frame or ack error
 		if(length < pckt_header + pckt_length)
 			ack_error = 1;
 		else
 			frame_error = 1;
-
-		// cout << "pckt in error" << endl;
 	}	
 	else
 	{
@@ -179,16 +179,10 @@ double ABP_SIMULATOR::channel(int length)
 	channel_time += (double)prop_delay;
 	// cout << "after fc - current time: " << channel_time << endl;
 	return channel_time;
-	//set flag for frame/ack error
 }
 
 void ABP_SIMULATOR::receiver()
 {
-	//check flag
-	//if pckt lost - do nothing
-	if(pckt_lost)
-		return;
-
 	//generate ack frame
 	ack_frame = new frame();
 	ack_frame->type = 1; //ack
@@ -197,17 +191,21 @@ void ABP_SIMULATOR::receiver()
 	//if error - send ack frame with current next_expected_frame
 	if(frame_error == 1)
 	{		
+		cout << "frame error" << endl;
 		ack_frame->sn = next_expected_frame;	//rn
 	} 
 	else
 	{
-		//if no err - increment next_expected_frame
-		//set rn == next_expected_frame
-		next_expected_frame += 1 % 2;
-		ack_frame->sn = next_expected_frame;	//rn
+		//check frame sn == next_expected_frame
+		if(data_frame->sn == next_expected_frame) 
+		{
+			next_expected_frame += 1;
+			next_expected_frame %= 2;
+			ack_frame->sn = next_expected_frame;	//rn	
+		}
 	}
 	
-	current_time += ((double)pckt_header / (double)channel_capacity);
+	// current_time += ((double)pckt_header / (double)channel_capacity);
 }
 
 Event* ABP_SIMULATOR::send()
@@ -229,27 +227,41 @@ Event* ABP_SIMULATOR::send()
 
 	//update current time
 	current_time = rc_time;
-	// cout << "after rc - current time: " << current_time << endl;
 	
-	Event * ack_event = new Event(1, current_time, next_expected_frame, ack_error);
+	if(pckt_lost || ack_lost)
+		return NULL;
 
-
-	//move to another method that just updates vars/counters
-	if(ack_error == 0 && next_expected_frame == next_expected_ack)
-	{
-		//increment sn
-		//empty buffer
-		sequence_numer += 1 % 2;
-		buffer.clear();
-	} 
-	else
-	{
-		//ack_error == 1 || next_expected_frame != next_expected_ack
-		//
-	}
-		
-
+	Event * ack_event = new Event(1, current_time, ack_frame->sn, ack_error);
 
 	return ack_event;
+}
+
+int ABP_SIMULATOR::update_state(int rn)
+{
+	//no error and rn = next_expected_ack
+	// cout << "rn (next expected frame): " << rn << endl;
+	// cout << "rn (next expected frame): " << next_expected_ack << endl;
+	if(/*ack_error == 0 && */rn == next_expected_ack)
+	{
+		cout << "no error in ACK EVENT..." << endl;
+		//increment sn
+		//empty buffer
+		sequence_numer += 1;
+		sequence_numer %= 2;
+		next_expected_ack = (sequence_numer + 1); 
+		next_expected_ack %= 2;
+		buffer.clear();
+
+		return 1;
+	} 
+	//ack_error == 1 || next_expected_frame != next_expected_ack
+	// cout << "ack_error == 1 || "; 
+	cout << "next_expected_frame != next_expected_ack" <<  endl;
+	return 0;
+}
+
+void ABP_SIMULATOR::clear_state()
+{
+
 }
 

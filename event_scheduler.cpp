@@ -13,6 +13,7 @@ class EventScheduler
 
 		Event* get_front_event();		//pop from head of queue
 		void register_event(Event*);
+		void clear_ES();
 	private:
 		list<Event*> _queue;
 
@@ -32,9 +33,12 @@ EventScheduler::~EventScheduler()
 
 Event* EventScheduler::get_front_event()
 {
-	Event *e;
-	 if(!_queue.empty())
+	Event *e = NULL;
+	if(!_queue.empty())
+	{
 		e = _queue.front();
+		_queue.pop_front();
+	}
 
 	return e;
 }
@@ -56,4 +60,9 @@ void EventScheduler::register_event(Event *e)
 		_queue.push_front(e);	
 	}
 	
+}
+
+void EventScheduler::clear_ES()
+{
+	_queue.clear();
 }
