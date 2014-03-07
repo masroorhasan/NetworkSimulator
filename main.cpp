@@ -13,8 +13,8 @@ int main()
 	int successful_pckts_num = 10;
 
 	//sender side input params
-	int header_length = 1500;				//bytes
-	int pckt_length = 54;				//bytes
+	int header_length = 54;				//bytes
+	int pckt_length = 1500;				//bytes
 	double delta = 2.5 * tao;
 
 	//channel params
@@ -41,20 +41,16 @@ int main()
 	ES->register_event(new Event(0, timeout, abp_sim->get_sn(), 0));
 	
 	int succ_pckt_ctr = 0;
-	int itr = 0;
+	int itr = 1;
 	while(succ_pckt_ctr < successful_pckts_num)
 	{
 		//fc, receiever, rc
-		
-
 		Event * ack_event = abp_sim->send();
 		if(ack_event != NULL)
 		{
 			cout << "registering ACK EVENT, with rn " << abp_sim->get_rn() << endl;
 			ES->register_event(ack_event);
 		}
-			
-
 		
 		//pop from queue, also check if event != NULL
 		Event * event = ES->get_front_event();
@@ -64,10 +60,13 @@ int main()
 		timeout += (double)((header_length + pckt_length)*8.0) / (double)transfer_rate;
 		timeout += delta;		
 
+		// if(event == NULL)
+		// 	continue;
+
 		if(event->get_event_type() == 0) //TIMEOUT EVENT
 		{
 			//retransmit
-			cout << "TIMED OUT MUTHAFUCKA, registering new TO time = " << timeout << endl;
+			cout << "TIMED OUT, registering new TO time = " << timeout << endl;
 			//register new timeout event
 			ES->register_event(new Event(0, timeout, abp_sim->get_sn(), 0)); 
 			itr++;
@@ -121,7 +120,7 @@ int main()
 			}
 		}
 
-
+		// itr++;
 	}
 
 	cout << "ITERATION " << itr << endl;

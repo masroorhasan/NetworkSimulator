@@ -62,6 +62,8 @@ class ABP_SIMULATOR
 		frame *data_frame;
 		frame *ack_frame;
 
+		// int ctr; 
+
 };
 
 ABP_SIMULATOR::ABP_SIMULATOR(double delta, int header, int length, double c, double tao, double ber)
@@ -80,6 +82,8 @@ ABP_SIMULATOR::ABP_SIMULATOR(double delta, int header, int length, double c, dou
 
 	//receiver
 	next_expected_frame = 0;
+
+	// ctr = 0;
 
 	srand(time(NULL));
 }
@@ -231,9 +235,8 @@ Event* ABP_SIMULATOR::send()
 	if(pckt_lost || ack_lost)
 		return NULL;
 
-	Event * ack_event = new Event(1, current_time, ack_frame->sn, ack_error);
-
-	return ack_event;
+	//return ack event
+	return new Event(1, current_time, ack_frame->sn, ack_error);
 }
 
 int ABP_SIMULATOR::update_state(int rn)
@@ -256,7 +259,7 @@ int ABP_SIMULATOR::update_state(int rn)
 	} 
 	//ack_error == 1 || next_expected_frame != next_expected_ack
 	// cout << "ack_error == 1 || "; 
-	cout << "next_expected_frame != next_expected_ack" <<  endl;
+	cout << "frame_error == 1 || next_expected_frame != next_expected_ack" <<  endl;
 	return 0;
 }
 
