@@ -195,7 +195,6 @@ void ABP_SIMULATOR::receiver()
 	//if error - send ack frame with current next_expected_frame
 	if(frame_error == 1)
 	{		
-		cout << "frame error" << endl;
 		ack_frame->sn = next_expected_frame;	//rn
 	} 
 	else
@@ -246,7 +245,7 @@ int ABP_SIMULATOR::update_state(int rn)
 	// cout << "rn (next expected frame): " << next_expected_ack << endl;
 	if(/*ack_error == 0 && */rn == next_expected_ack)
 	{
-		cout << "no error in ACK EVENT..." << endl;
+		// cout << "no error in ACK EVENT..." << endl;
 		//increment sn
 		//empty buffer
 		sequence_numer += 1;
@@ -259,7 +258,7 @@ int ABP_SIMULATOR::update_state(int rn)
 	} 
 	//ack_error == 1 || next_expected_frame != next_expected_ack
 	// cout << "ack_error == 1 || "; 
-	cout << "frame_error == 1 || next_expected_frame != next_expected_ack" <<  endl;
+	// cout << "frame_error == 1 || next_expected_frame != next_expected_ack" <<  endl;
 	return 0;
 }
 
