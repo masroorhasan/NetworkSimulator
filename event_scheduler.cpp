@@ -1,3 +1,7 @@
+// #include <stdio.h>
+// #include <stdlib.h>
+#include <iostream>
+
 #include <list>
 
 using namespace std;
@@ -14,6 +18,8 @@ class EventScheduler
 		Event* get_front_event();		//pop from head of queue
 		void register_event(Event*);
 		void clear_ES();
+
+		bool is_ES_empty();
 	private:
 		list<Event*> _queue;
 
@@ -65,4 +71,9 @@ void EventScheduler::register_event(Event *e)
 void EventScheduler::clear_ES()
 {
 	_queue.clear();
+}
+
+bool EventScheduler::is_ES_empty()
+{
+	return _queue.empty();
 }
