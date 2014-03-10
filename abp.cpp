@@ -14,13 +14,14 @@ using namespace std;
 
 int main()
 {
-	double tao = 0.01; 		//in ms, testing
-	int successful_pckts_num = 10000;
+	// double tao = 0.005; 		//in ms, testing
+	double tao = 0.25;
+	int successful_pckts_num = 10000/2;
 
 	//sender side input params
 	int header_length = 54;				//bytes
 	int pckt_length = 1500;				//bytes
-	double delta = 2.5 * tao;
+	double delta = 12.5 * tao;
 
 	//channel params
 	double transfer_rate = 5000000;		//C (bps)
@@ -41,7 +42,7 @@ int main()
 	abp_sim->sender();
 	// cout << "initializing first sender, with sn " << abp_sim->get_sn() << endl;
 
-	timeout += abp_sim->get_tc();	//0
+	timeout = abp_sim->get_tc();	//0
 	timeout += (double)((header_length + pckt_length)*8.0) / (double)transfer_rate;
 	timeout += delta;
 	
@@ -54,7 +55,7 @@ int main()
 	int itr = 0;
 	while(succ_pckt_ctr < successful_pckts_num)
 	{
-		// timeout += abp_sim->get_tc();
+		// timeout = abp_sim->get_tc();
 		// timeout += (double)((header_length + pckt_length)*8.0) / (double)transfer_rate;
 		// timeout += delta;	
 
@@ -96,8 +97,7 @@ int main()
 		}
 		else	//ACK EVENT
 		{
-			int no_df_error = abp_sim->update_state(event->get_sn());
-			if(event->get_error_flag() == 0 && no_df_error == 1)
+			if(event->get_error_flag() == 0 && abp_sim->update_state(event->get_sn()) == 1)
 			{	
 				// cout << "ack event..." << endl;
 				succ_pckt_ctr++;
@@ -163,7 +163,8 @@ int main()
 	cout << "ITERATION " << itr << endl;
 	cout << "successful packet count: " << succ_pckt_ctr << endl;
 	cout << "tc: " << abp_sim->get_tc() << " s" << endl;
-	cout << "throughput: " << (double)succ_pckt_ctr / abp_sim->get_tc() << " pckts/s" << endl;
+	// cout << "throughput: " << (double)succ_pckt_ctr / abp_sim->get_tc() << " pckts/s" << endl;
+	cout << "throughput: " << (double)(succ_pckt_ctr*pckt_length*8.0) / abp_sim->get_tc() << " bits/s" << endl;
 	
 	return 0;
 }
