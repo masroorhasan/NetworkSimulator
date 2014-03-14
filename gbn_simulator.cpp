@@ -233,7 +233,7 @@ int GBN_Simulator::update_window(int ctr, int rn)
 	ctr = (ctr-itr);
 	ctr++;
 
-	ctr = ctr < 0 ? ctr+window_size : ctr;
+	ctr = ctr < 0 ? -1*ctr : ctr;
 	// int shift_size = (rn - buffer.front()->get_frame_sn()) % (window_size+1);
 	// shift_size = shift_size < 0 ? shift_size * -1 : shift_size;
 
