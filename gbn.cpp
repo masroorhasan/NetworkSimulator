@@ -10,6 +10,7 @@ using namespace std;
 int main()
 {
 	double tao = 0.005;
+	// double tao = 0.25;
 	int successful_pckts_num = 10;
 
 	//sender side input params
@@ -60,17 +61,17 @@ int main()
 
 		ES->print_ES();
 
-		if(ctr == window_size-1)
-		{
-			cout << "popping off ES" << endl;
-			Event *event_popped = ES->get_front_event();
-			while(event_popped->get_event_type() == 1 &&
-		 				event_popped->get_error_flag() == 1)
-			{
-				event_popped = ES->get_front_event();
-				event = event_popped;
-			}
-		}
+		// if(ctr == window_size-1)
+		// {
+		// 	cout << "popping off ES" << endl;
+		// 	Event *event_popped = ES->get_front_event();
+		// 	while(event_popped->get_event_type() == 1 &&
+		//  				event_popped->get_error_flag() == 1)
+		// 	{
+		// 		event_popped = ES->get_front_event();
+		// 		event = event_popped;
+		// 	}
+		// }
 
 		tc = event->get_time_stamp();
 		if(event->get_time_stamp() > gbn_sim->get_Ttc(ctr))
@@ -86,6 +87,7 @@ int main()
 			{
 				cout << "PROCESSING TIMEOUT" << endl;
 				ES->purge_TO_event();
+				
 				timeout = gbn_sim->get_Ttc(0);
 				timeout += delta;	
 				ES->register_event(new Event(0, timeout, -1, 0));	
@@ -99,9 +101,12 @@ int main()
 				{
 					cout << "PROCESSING ACK EVENT" << endl;
 					
+					// ES->get_front_event();
+					tc = event->get_time_stamp();
 					ctr = gbn_sim->update_window(ctr, event->get_sn());
 
 					ES->purge_TO_event();
+					
 					timeout = gbn_sim->get_Ttc(0);
 					timeout += delta;
 					ES->register_event(new Event(0, timeout, -1, 0));												
@@ -110,7 +115,7 @@ int main()
 					// ctr -= shift_size%(window_size+1);
 					// ctr++;
 					// gbn_sim->update_buffer(ctr, shift_size);
-
+					ES->get_front_event();
 					succ_pckt_ctr++;
 				}
 				else

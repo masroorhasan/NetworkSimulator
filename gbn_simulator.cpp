@@ -193,6 +193,7 @@ bool GBN_Simulator::check_expected_acks(int rn)
 int GBN_Simulator::update_window(int ctr, int rn)
 {
 	cout << "Before SHIFT" << endl;
+	cout << "rn: " << rn << endl;
 	cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
 	// cout << "T[0] = " << pckt_T.at(0) << endl;
 
@@ -205,7 +206,7 @@ int GBN_Simulator::update_window(int ctr, int rn)
 		if(buffer.at(i)->get_frame_sn() == sn_acked)
 		{
 			itr = i;
-			itr++;
+			// itr++;
 			break;
 		}
 	}
