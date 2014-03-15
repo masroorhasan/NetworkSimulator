@@ -9,14 +9,14 @@ using namespace std;
 
 int main()
 {
-	double tao = 0.005;
-	// double tao = 0.25;
+	// double tao = 0.005;
+	double tao = 0.25;
 	int successful_pckts_num = 10;
 
 	//sender side input params
 	int pckt_header = 54;				//bytes
 	int pckt_length = 1500;				//bytes
-	double delta = 2.5 * tao;
+	double delta = 12.5 * tao;
 
 	//channel params
 	double transfer_rate = 5000000;		//C (bps)
@@ -41,7 +41,8 @@ int main()
 	while(ctr < (window_size))
 	{
 		cout << "ctr: " << ctr << endl;
-		tc += transfer_time;
+
+		// tc += transfer_time;
 		gbn_sim->update_pckt_T(ctr,tc);
 		//insert SN[counter-1]+1 to next_expected_ack
 		gbn_sim->update_nea(ctr);
@@ -59,21 +60,15 @@ int main()
 		ES->print_ES();
 		Event *event = ES->read_ES();
 
-		if(ctr == window_size-1)
-		{
-			cout << "popping at " << window_size-1 << endl;
-			Event *e = ES->get_front_event();
-			cout << "got a(n) ";
-			if(event->get_event_type() == 0)
-				cout << "timeout event" << endl;
-			else	
-				cout << "ack event" << endl;
+		// if(ctr == window_size-1)
+		// {
+		// 	tc = event->get_time_stamp();
+		// 	gbn_sim->update_tc(tc);
+		// }
 
-			event = e;
-		}
-
-		tc = event->get_time_stamp();
+		// tc = event->get_time_stamp();
 		if(event->get_time_stamp() > gbn_sim->get_Ttc(ctr))
+		// if(event->get_time_stamp() > gbn_sim->get_tc())
 		{
 			//event occured after transfer time
 			cout << "do nothing" << endl;
@@ -82,9 +77,11 @@ int main()
 		}
 
 		if(event->get_time_stamp() < gbn_sim->get_Ttc(ctr))
+		// if(event->get_time_stamp() < gbn_sim->get_tc())
 		{
 			if(event->get_event_type() == 0) 	//TIMEOUT
 			{
+				ES->get_front_event();
 				cout << "PROCESSING TIMEOUT" << endl;
 				ES->purge_TO_event();
 				
@@ -97,16 +94,23 @@ int main()
 			}
 			else
 			{
+				if(ctr == window_size-1)
+				{
+					// tc = event->get_time_stamp();
+					gbn_sim->update_tc(event->get_time_stamp());
+				}
+
 				if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
 				{
 					cout << "PROCESSING ACK EVENT of rn = " << event->get_sn() << endl;
 					
-					// ES->get_front_event();
+					ES->get_front_event();
 					// tc = event->get_time_stamp();
+					gbn_sim->update_tc(event->get_time_stamp());
 					ctr = gbn_sim->update_window(ctr, event->get_sn());
 
 					ES->purge_TO_event();					
-					ES->get_front_event();	//pop ES
+					// ES->get_front_event();	//pop ES
 
 					timeout = gbn_sim->get_Ttc(0);
 					timeout += delta;
@@ -134,9 +138,9 @@ int main()
 	cout << "ber: " << ber << endl;
 	// cout << "ITERATION " << itr << endl;
 	cout << "successful packet count: " << succ_pckt_ctr << endl;
-	cout << "tc: " << tc << " s" << endl;
+	cout << "tc: " << gbn_sim->get_tc() << " s" << endl;
 	// cout << "throughput: " << (double)succ_pckt_ctr / abp_sim->get_tc() << " pckts/s" << endl;
-	cout << "throughput: " << (double)(succ_pckt_ctr*pckt_length*8.0) / tc << " bits/s" << endl;
+	cout << "throughput: " << (double)(succ_pckt_ctr*pckt_length*8.0) / gbn_sim->get_tc() << " bits/s" << endl;
 
     return 0;
 }

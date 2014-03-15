@@ -169,9 +169,9 @@ double GBN_Simulator::get_tc()
 
 double GBN_Simulator::get_Ttc(int index)
 {
-	// cout << "getting: T[" << index << "] = " << buffer.at(index)->get_frame_timestamp() << endl;
-	cout << "index: " << index << endl;
-	print_buffer();
+	// cout << "index: " << index << endl;
+	// print_buffer();
+	cout << "getting: T[" << index << "] = " << buffer.at(index)->get_frame_timestamp() << endl;
 	return buffer.at(index)->get_frame_timestamp();
 }
 
@@ -227,7 +227,7 @@ int GBN_Simulator::update_window(int ctr, int rn)
 	{
 		int sn = (buffer.at(i-1)->get_frame_sn()+1)%(window_size+1);
 		Frame *d_frame = new Frame(0, sn, (pckt_header+pckt_length));
-
+		d_frame->set_timestamp(current_time+((double)((pckt_header + pckt_length)*8.0) / (double)channel_capacity));
 		buffer.push_back(d_frame);
 	}
 	
@@ -285,9 +285,14 @@ void GBN_Simulator::update_tc(double new_current_time)
 void GBN_Simulator::update_pckt_T(int ctr, double new_time)
 {
 	//check if indexing has to be mod N+1
-	// cout << "here" << endl;
-	update_tc(new_time);
-	buffer.at(ctr)->set_timestamp(new_time);
+	double time_to_update = current_time;
+	time_to_update += new_time;
+
+	cout << "time to update: " << time_to_update << endl;
+	
+	update_tc(time_to_update);
+	buffer.at(ctr)->set_timestamp(time_to_update);
+	
 	cout << "UPDATING pckt_T: T[" << ctr << "] = " << buffer.at(ctr)->get_frame_timestamp() << endl;
 }
 
@@ -407,6 +412,7 @@ Event* GBN_Simulator::send(int pckt_ctr)
 	current_time += ((double)(pckt_header) * 8.0 / (double)channel_capacity);
 	current_time += (double)(prop_delay) * 2.0;
 
+	cout << "ack time: " << current_time << endl;
 	cout << "requesting rn: " << next_expected_frame << endl;
 	
 	//return ack event with timestamp, rn and flag
