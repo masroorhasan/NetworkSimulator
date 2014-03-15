@@ -7,16 +7,17 @@
 
 using namespace std;
 
+
 int main()
 {
-	// double tao = 0.005;
-	double tao = 0.25;
-	int successful_pckts_num = 10;
+	double tao = 0.005;
+	// double tao = 0.25;
+	int successful_pckts_num = 1000;
 
 	//sender side input params
 	int pckt_header = 54;				//bytes
 	int pckt_length = 1500;				//bytes
-	double delta = 12.5 * tao;
+	double delta = 2.5 * tao;
 
 	//channel params
 	double transfer_rate = 5000000;		//C (bps)
@@ -25,7 +26,7 @@ int main()
 
 	int window_size = 4;				//N
 
-	double timeout = 0.0;
+	// double timeout = 0.0;
 
 	GBN_Simulator *gbn_sim = new GBN_Simulator(pckt_header, pckt_length, transfer_rate,
 												prop_delay, ber, window_size);
@@ -37,101 +38,135 @@ int main()
 
 	int ctr = 0;			//buffer location of frame to be transmitted
 	int succ_pckt_ctr = 0;	//num of successful pckts transmitted
-
-	while(ctr < (window_size))
+	// while(succ_pckt_ctr < successful_pckts_num)
 	{
-		cout << "ctr: " << ctr << endl;
-
-		// tc += transfer_time;
-		gbn_sim->update_pckt_T(ctr,tc);
-		//insert SN[counter-1]+1 to next_expected_ack
-		gbn_sim->update_nea(ctr);
-		//if ctr = 0, insert new timeout event
-		timeout = gbn_sim->get_Ttc(0);
-		timeout += delta;
-		if(ctr == 0)
-			ES->register_event(new Event(0, timeout, -1, 0));
-
-		Event *ack_event = gbn_sim->send(ctr);
-		
-		if(ack_event != NULL)
-			ES->register_event(ack_event);
-
-		ES->print_ES();
-		Event *event = ES->read_ES();
-
-		// if(ctr == window_size-1)
-		// {
-		// 	tc = event->get_time_stamp();
-		// 	gbn_sim->update_tc(tc);
-		// }
-
-		// tc = event->get_time_stamp();
-		if(event->get_time_stamp() > gbn_sim->get_Ttc(ctr))
-		// if(event->get_time_stamp() > gbn_sim->get_tc())
+		while(ctr < window_size)
 		{
-			//event occured after transfer time
-			cout << "do nothing" << endl;
-			//send next pckt immediately
-			ctr++;
-		}
+			//update transfer time for each pckt
+			//update global clk
+			gbn_sim->update_pckt_T(ctr, transfer_time);
+			// gbn_sim->update_nea(ctr);
 
-		if(event->get_time_stamp() < gbn_sim->get_Ttc(ctr))
-		// if(event->get_time_stamp() < gbn_sim->get_tc())
-		{
-			if(event->get_event_type() == 0) 	//TIMEOUT
+			if(ctr == 0)
 			{
-				ES->get_front_event();
-				cout << "PROCESSING TIMEOUT" << endl;
 				ES->purge_TO_event();
-				
-				timeout = gbn_sim->get_Ttc(0);
-				timeout += delta;	
-				ES->register_event(new Event(0, timeout, -1, 0));	
-
-				ctr = 0;
-				continue;
+				double timeout = gbn_sim->get_Ttc(0);
+				timeout += delta;
+				ES->register_event(new Event(0, timeout, -1, 0));
 			}
-			else
+
+			double new_tc = gbn_sim->get_tc();
+			new_tc += transfer_time;
+			gbn_sim->update_tc(new_tc);
+
+			Event *ack = gbn_sim->send(ctr);
+
+			if(ack != NULL)
+				ES->register_event(ack);
+
+			Event *event = ES->read_ES();
+
+			cout << "even timestamp: " << event->get_time_stamp() << endl;
+			cout << "global clk: " << gbn_sim->get_tc() << endl;
+			
+
+			if(ctr == window_size-1)
 			{
-				if(ctr == window_size-1)
-				{
-					// tc = event->get_time_stamp();
-					gbn_sim->update_tc(event->get_time_stamp());
-				}
+				//while check nak and mismatched rn
+				// cout << "last pckt" << endl;
 
-				if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
+				gbn_sim->update_tc(event->get_time_stamp());
+
+				cout << "updated global clk: " << gbn_sim->get_tc() << endl;
+
+				if(event->get_event_type() == 0) 	//TIMEOUT
 				{
-					cout << "PROCESSING ACK EVENT of rn = " << event->get_sn() << endl;
-					
+					ES->purge_TO_event();
+					ctr = 0;
 					ES->get_front_event();
-					// tc = event->get_time_stamp();
-					gbn_sim->update_tc(event->get_time_stamp());
-					ctr = gbn_sim->update_window(ctr, event->get_sn());
-
-					ES->purge_TO_event();					
-					// ES->get_front_event();	//pop ES
-
-					timeout = gbn_sim->get_Ttc(0);
-					timeout += delta;
-					ES->register_event(new Event(0, timeout, -1, 0));	
-
-					succ_pckt_ctr++;
-
-					cout << "successful pckts transmitted: " << succ_pckt_ctr << endl;
 				}
 				else
 				{
-					//nak
-					cout << "PROCESSING NAK EVENT" << endl;
+					if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
+					{
+						//ack
+						cout << "Processing ACK" << endl;
+						ctr = gbn_sim->update_window(ctr, event->get_sn());
+						succ_pckt_ctr = gbn_sim->shift_size();
+						//set new timeout
+						
+						ES->purge_TO_event();
+						double timeout = gbn_sim->get_Ttc(0);
+						timeout += delta;
+						ES->register_event(new Event(0, timeout, -1, 0));
+						cout << "new timeout: " << timeout << endl;
+
+						ES->get_front_event();		
+					}
+					else
+					{
+						//nak
+						ES->get_front_event();
+					}
 				}
+
+				if(succ_pckt_ctr >= successful_pckts_num)
+					break;
+
+				// ES->get_front_event();
+				continue;
+
+				// cout << "succ pckt ctr: " << succ_pckt_ctr << endl;
+				// cout << "ctr: " << ctr << endl;
+				// cout << "here" << endl;
+				// break;
 			}
+
+			if(event->get_time_stamp() <= gbn_sim->get_tc())
+			{
+
+				if(event->get_event_type() == 0) 	//TIMEOUT
+				{
+					ES->purge_TO_event();
+					ctr = 0;
+					ES->get_front_event();
+				}
+				else
+				{
+					if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
+					{
+						//ack
+						cout << "Processing ACK" << endl;
+						ctr = gbn_sim->update_window(ctr, event->get_sn());
+						succ_pckt_ctr = gbn_sim->shift_size();
+						//set new timeout
+						ES->purge_TO_event();
+						
+						double timeout = gbn_sim->get_Ttc(0);
+						timeout += delta;
+						ES->register_event(new Event(0, timeout, -1, 0));
+
+						ES->get_front_event();		
+					}
+					else
+					{
+						//nak
+						ES->get_front_event();
+					}
+				}
+
+				if(succ_pckt_ctr >= successful_pckts_num)
+					break;
+
+				continue;
+			}
+
+			ctr++;
 		}
-
-		if(succ_pckt_ctr == successful_pckts_num)
-			break;			
 	}
-
+	
+	cout << endl;
+	cout << endl;
 	cout << endl;
 	cout << "GBN" << endl;
 	cout << "2Tao: " << 2.0 * tao << " s" << endl;

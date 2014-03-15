@@ -84,6 +84,10 @@ class GBN_Simulator
 		double get_Ttc(int);
 		double get_tc();
 
+		int get_seq_num(int);
+		int shift_size();
+
+		void fill_buffer();
 
 		void update_tc(double);
 		void update_pckt_T(int,double);
@@ -114,6 +118,7 @@ class GBN_Simulator
 
 		//receiver
 		int next_expected_frame;
+		int receive_num;
 
 		//buffer and window
 		// list<frame*> buffer; 		//M: to hold a single pckt
@@ -129,6 +134,7 @@ class GBN_Simulator
 		// frame *data_frame;
 		// frame *ack_frame;
 		// int ctr; 
+		int shifting_size;
 };
 
 GBN_Simulator::GBN_Simulator(int header, int length, double c, double tao, double ber, int window)
@@ -143,6 +149,8 @@ GBN_Simulator::GBN_Simulator(int header, int length, double c, double tao, doubl
 
 	//receiver
 	next_expected_frame = 0;
+	receive_num = 1;
+
 
 	double time_sent = 0.0;
 	//populate buffer
@@ -154,6 +162,9 @@ GBN_Simulator::GBN_Simulator(int header, int length, double c, double tao, doubl
 	}
 
 	cout << "buffer size: " << buffer.size() << endl;
+
+	int shifting_size = 0;
+
 	srand(time(NULL));
 }
 
@@ -171,8 +182,13 @@ double GBN_Simulator::get_Ttc(int index)
 {
 	// cout << "index: " << index << endl;
 	// print_buffer();
-	cout << "getting: T[" << index << "] = " << buffer.at(index)->get_frame_timestamp() << endl;
+	cout << "at T[" << index << "] = " << buffer.at(index)->get_frame_timestamp() << endl;
 	return buffer.at(index)->get_frame_timestamp();
+}
+
+int GBN_Simulator::get_seq_num(int index)
+{
+	return buffer.at(index)->get_frame_sn();
 }
 
 int GBN_Simulator::get_s1n()
@@ -182,39 +198,69 @@ int GBN_Simulator::get_s1n()
 
 bool GBN_Simulator::check_expected_acks(int rn)
 {
-	
-	std::vector<int>::iterator it;
-	it = std::find(next_expected_ack.begin(), next_expected_ack.end(), rn);
+	// std::vector<int>::iterator it;
+	// it = std::find(next_expected_ack.begin(), next_expected_ack.end(), rn);
 
-	if(it != next_expected_ack.end())
-		return true;
+	// if(it != next_expected_ack.end())
+	// 	return true;
 	
+	// return false;
+
+	int sn_acked = (rn+window_size)%(window_size+1);
+	for(int i =0; i <window_size; i++)
+	{
+		if(buffer.at(i)->get_frame_sn() == sn_acked)
+			return true;
+	}
+
 	return false;
+}
+
+void GBN_Simulator::fill_buffer()
+{
+	for(int i = buffer.size(); i < window_size; i++)
+	{
+		int sn = (buffer.at(i-1)->get_frame_sn()+1)%(window_size+1);
+		Frame *d_frame = new Frame(0, sn, (pckt_header+pckt_length));
+		d_frame->set_timestamp(current_time+((double)((pckt_header + pckt_length)*8.0) / (double)channel_capacity));
+		buffer.push_back(d_frame);
+	}
 }
 
 int GBN_Simulator::update_window(int ctr, int rn)
 {
+	cout << "rn: " << rn << endl;
 	cout << "Before SHIFT" << endl;
-	// cout << "rn: " << rn << endl;
 	cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
-	// cout << "T[0] = " << pckt_T.at(0) << endl;
+	print_buffer();
+	
 
 	vector<Frame*> tmp_buffer;
-	int sn_acked = (rn + get_s1n())%(window_size+1);
+	
+	int sn_acked = (rn + window_size)%(window_size+1);
+	cout << "sn acked = " << sn_acked << endl;
 
-	int itr = 0;
-	for(int i=0; i < buffer.size(); i++)
+	int itr = -1;
+	for(int i = 0; i < buffer.size(); i++)
 	{
 		if(buffer.at(i)->get_frame_sn() == sn_acked)
 		{
 			itr = i;
-			// itr++;
 			break;
 		}
 	}
 
+	itr++;
+
+	shifting_size += itr;
+	cout << "successful pckts: " << itr << endl;
+
+	//what if itr = 4
+	// if(itr >= window_size)
+	// 	itr = 0;
+
 	int new_index = 0;
-	for(int i = itr; i < window_size; i++)
+	for(int i = itr; i < buffer.size(); i++)
 	{
 		tmp_buffer.insert(tmp_buffer.begin()+new_index, buffer.at(i));
 		new_index++;
@@ -227,37 +273,26 @@ int GBN_Simulator::update_window(int ctr, int rn)
 	{
 		int sn = (buffer.at(i-1)->get_frame_sn()+1)%(window_size+1);
 		Frame *d_frame = new Frame(0, sn, (pckt_header+pckt_length));
-		d_frame->set_timestamp(current_time+((double)((pckt_header + pckt_length)*8.0) / (double)channel_capacity));
+		//d_frame->set_timestamp(current_time+((double)((pckt_header + pckt_length)*8.0) / (double)channel_capacity));
 		buffer.push_back(d_frame);
 	}
 	
-	cout << "ctr: " << ctr << endl;
-	cout << "itr: " << itr << endl;
-	ctr = (ctr-itr);
 	ctr++;
+	ctr = ctr-(itr);
 
-	ctr = ctr < 0 ? -1*ctr : ctr;
-	// int shift_size = (rn - buffer.front()->get_frame_sn()) % (window_size+1);
-	// shift_size = shift_size < 0 ? shift_size * -1 : shift_size;
-
-	//rotate vector
-	// std::rotate(buffer.begin(), buffer.begin()+shift_size, buffer.end());
-	// std::rotate(pckt_T.begin(), pckt_T.begin()+shift_size, pckt_T.end());
-
-
-	// int itr = 0;
-	// while(itr < shift_size)
-	// {
-	// 	buffer.pop_back();
-	// 	// pckt_T.pop_back();
-	// 	itr++;
-	// }
-	// cout << "SHIFTING SN and T by: " << shift_size << endl;
+	// ctr = ctr < 0 ? -1*ctr : ctr;
+	cout << "new ctr: " << ctr << endl;
+	
 	cout << "After SHIFT" << endl;
 	cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
 	// cout << "T[0] = " << pckt_T.at(0) << endl;
 	print_buffer();
 	return ctr;
+}
+
+int GBN_Simulator::shift_size()
+{
+	return shifting_size;
 }
 
 void GBN_Simulator::update_buffer(int index, int shift_size)
@@ -285,13 +320,13 @@ void GBN_Simulator::update_tc(double new_current_time)
 void GBN_Simulator::update_pckt_T(int ctr, double new_time)
 {
 	//check if indexing has to be mod N+1
-	double time_to_update = current_time;
-	time_to_update += new_time;
+	// double time_to_update = current_time;
+	// time_to_update += new_time;
 
-	cout << "time to update: " << time_to_update << endl;
-	
-	update_tc(time_to_update);
-	buffer.at(ctr)->set_timestamp(time_to_update);
+	cout << "new transfer time: " << current_time+new_time << endl;
+	buffer.at(ctr)->set_timestamp(current_time+new_time);
+
+	// update_tc(time_to_update);
 	
 	cout << "UPDATING pckt_T: T[" << ctr << "] = " << buffer.at(ctr)->get_frame_timestamp() << endl;
 }
@@ -370,7 +405,7 @@ void GBN_Simulator::receiver(int pckt_ctr)
 	Frame *ack_frame = new Frame(1);
 	
 	cout << "next_expected_frame (rn): " << next_expected_frame << endl;
-	cout << "checking SN[" << pckt_ctr << "] = " << buffer.at(pckt_ctr)->get_frame_sn() << endl;
+	//cout << "checking SN[" << pckt_ctr << "] = " << buffer.at(pckt_ctr)->get_frame_sn() << endl;
 
 	if(frame_error == 1)
 	{		
@@ -379,10 +414,10 @@ void GBN_Simulator::receiver(int pckt_ctr)
 	else
 	{
 		//check frame sn == next_expected_frame
-		// if(buffer.at(pckt_ctr)->get_frame_sn() == next_expected_frame)
-		// if(buffer.at(pckt_ctr)->get_frame_sn() == next_expected_ack.at(pckt_ctr))
+		if(buffer.at(pckt_ctr)->get_frame_sn() == next_expected_frame)
 		{
-			cout << "no error, incrementing rn.." << endl;
+			// cout << "no error, incrementing rn.." << endl;
+			cout << "no data frame error, incrementing nef" << endl;
 			next_expected_frame = (next_expected_frame+1)%(window_size+1);
 			ack_frame->set_sn(next_expected_frame);	//rn
 			// cout << "updated nef (assigning rn): " << next_expected_frame << endl;
@@ -403,20 +438,35 @@ Event* GBN_Simulator::send(int pckt_ctr)
 
 	//call reverse channel
 	double rc_time = channel(pckt_header);
-
+	
 	if(pckt_lost)
 		return NULL;
 	
 	//update current time to transmission time + prop delay
 	// current_time += ((double)((pckt_header + pckt_length)*8.0) / (double)channel_capacity);
-	current_time += ((double)(pckt_header) * 8.0 / (double)channel_capacity);
-	current_time += (double)(prop_delay) * 2.0;
+	// current_time += ((double)(pckt_header) * 8.0 / (double)channel_capacity);
+	// current_time += (double)(prop_delay) * 2.0;
 
-	cout << "ack time: " << current_time << endl;
-	cout << "requesting rn: " << next_expected_frame << endl;
+	double event_time = current_time;
+	event_time += ((double)(pckt_header) * 8.0 / (double)channel_capacity);
+	event_time += (double)(prop_delay) * 2.0;
 	
+	cout << "ack time: " << event_time << endl;
+	cout << "requesting rn: " << receive_num << endl;
+	
+
 	//return ack event with timestamp, rn and flag
-	return new Event(1, current_time, next_expected_frame, ack_error);
+	if(ack_error == 0)
+	{
+		Event *ack = new Event(1, event_time, receive_num, ack_error);
+		receive_num	+= 1%(window_size+1);
+		return ack;
+	}
+	else
+	{
+		Event *ack = new Event(1, event_time, receive_num, ack_error);
+		return ack;
+	}
 }
 
 void GBN_Simulator::print_buffer()

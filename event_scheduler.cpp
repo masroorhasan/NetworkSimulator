@@ -95,7 +95,7 @@ void EventScheduler::purge_TO_event()
 	int itr = 0;
 	if(!_queue.empty())
 	{
-		// _queue.remove_if(is_to_event<Event>);
+		cout << "Purging TIMEOUT" << endl;
 		_queue.erase(
 				std::remove_if(_queue.begin(), _queue.end(),
 					is_to_event),
