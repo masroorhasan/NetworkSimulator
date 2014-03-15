@@ -170,6 +170,8 @@ double GBN_Simulator::get_tc()
 double GBN_Simulator::get_Ttc(int index)
 {
 	// cout << "getting: T[" << index << "] = " << buffer.at(index)->get_frame_timestamp() << endl;
+	cout << "index: " << index << endl;
+	print_buffer();
 	return buffer.at(index)->get_frame_timestamp();
 }
 
@@ -180,7 +182,7 @@ int GBN_Simulator::get_s1n()
 
 bool GBN_Simulator::check_expected_acks(int rn)
 {
-	// cout << "rn: " << rn << endl;
+	
 	std::vector<int>::iterator it;
 	it = std::find(next_expected_ack.begin(), next_expected_ack.end(), rn);
 
@@ -193,7 +195,7 @@ bool GBN_Simulator::check_expected_acks(int rn)
 int GBN_Simulator::update_window(int ctr, int rn)
 {
 	cout << "Before SHIFT" << endl;
-	cout << "rn: " << rn << endl;
+	// cout << "rn: " << rn << endl;
 	cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
 	// cout << "T[0] = " << pckt_T.at(0) << endl;
 
@@ -251,6 +253,7 @@ int GBN_Simulator::update_window(int ctr, int rn)
 	// 	itr++;
 	// }
 	// cout << "SHIFTING SN and T by: " << shift_size << endl;
+	cout << "After SHIFT" << endl;
 	cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
 	// cout << "T[0] = " << pckt_T.at(0) << endl;
 	print_buffer();
@@ -283,6 +286,7 @@ void GBN_Simulator::update_pckt_T(int ctr, double new_time)
 {
 	//check if indexing has to be mod N+1
 	// cout << "here" << endl;
+	update_tc(new_time);
 	buffer.at(ctr)->set_timestamp(new_time);
 	cout << "UPDATING pckt_T: T[" << ctr << "] = " << buffer.at(ctr)->get_frame_timestamp() << endl;
 }
@@ -359,11 +363,9 @@ void GBN_Simulator::receiver(int pckt_ctr)
 {
 	//generate ack frame
 	Frame *ack_frame = new Frame(1);
-	// ack_frame->type = 1; //ack
-	// ack_frame->length = pckt_header;
-
-	//if error - send ack frame with current next_expected_frame
-	// cout << "sn: " << this->get_s1n() << endl;
+	
+	cout << "next_expected_frame (rn): " << next_expected_frame << endl;
+	cout << "checking SN[" << pckt_ctr << "] = " << buffer.at(pckt_ctr)->get_frame_sn() << endl;
 
 	if(frame_error == 1)
 	{		
@@ -372,9 +374,10 @@ void GBN_Simulator::receiver(int pckt_ctr)
 	else
 	{
 		//check frame sn == next_expected_frame
-		if(buffer.at(pckt_ctr)->get_frame_sn() == next_expected_frame)
+		// if(buffer.at(pckt_ctr)->get_frame_sn() == next_expected_frame)
+		// if(buffer.at(pckt_ctr)->get_frame_sn() == next_expected_ack.at(pckt_ctr))
 		{
-			// cout << "nef: " << next_expected_frame << endl;
+			cout << "no error, incrementing rn.." << endl;
 			next_expected_frame = (next_expected_frame+1)%(window_size+1);
 			ack_frame->set_sn(next_expected_frame);	//rn
 			// cout << "updated nef (assigning rn): " << next_expected_frame << endl;

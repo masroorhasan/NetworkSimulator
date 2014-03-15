@@ -42,7 +42,6 @@ int main()
 	{
 		cout << "ctr: " << ctr << endl;
 		tc += transfer_time;
-		//insert tc at T
 		gbn_sim->update_pckt_T(ctr,tc);
 		//insert SN[counter-1]+1 to next_expected_ack
 		gbn_sim->update_nea(ctr);
@@ -57,27 +56,28 @@ int main()
 		if(ack_event != NULL)
 			ES->register_event(ack_event);
 
+		ES->print_ES();
 		Event *event = ES->read_ES();
 
-		ES->print_ES();
+		if(ctr == window_size-1)
+		{
+			cout << "popping at " << window_size-1 << endl;
+			Event *e = ES->get_front_event();
+			cout << "got a(n) ";
+			if(event->get_event_type() == 0)
+				cout << "timeout event" << endl;
+			else	
+				cout << "ack event" << endl;
 
-		// if(ctr == window_size-1)
-		// {
-		// 	cout << "popping off ES" << endl;
-		// 	Event *event_popped = ES->get_front_event();
-		// 	while(event_popped->get_event_type() == 1 &&
-		//  				event_popped->get_error_flag() == 1)
-		// 	{
-		// 		event_popped = ES->get_front_event();
-		// 		event = event_popped;
-		// 	}
-		// }
+			event = e;
+		}
 
 		tc = event->get_time_stamp();
 		if(event->get_time_stamp() > gbn_sim->get_Ttc(ctr))
 		{
 			//event occured after transfer time
 			cout << "do nothing" << endl;
+			//send next pckt immediately
 			ctr++;
 		}
 
@@ -99,24 +99,22 @@ int main()
 			{
 				if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
 				{
-					cout << "PROCESSING ACK EVENT" << endl;
+					cout << "PROCESSING ACK EVENT of rn = " << event->get_sn() << endl;
 					
 					// ES->get_front_event();
-					tc = event->get_time_stamp();
+					// tc = event->get_time_stamp();
 					ctr = gbn_sim->update_window(ctr, event->get_sn());
 
-					ES->purge_TO_event();
-					
+					ES->purge_TO_event();					
+					ES->get_front_event();	//pop ES
+
 					timeout = gbn_sim->get_Ttc(0);
 					timeout += delta;
-					ES->register_event(new Event(0, timeout, -1, 0));												
-					
-					// update ctr
-					// ctr -= shift_size%(window_size+1);
-					// ctr++;
-					// gbn_sim->update_buffer(ctr, shift_size);
-					ES->get_front_event();
+					ES->register_event(new Event(0, timeout, -1, 0));	
+
 					succ_pckt_ctr++;
+
+					cout << "successful pckts transmitted: " << succ_pckt_ctr << endl;
 				}
 				else
 				{
@@ -125,9 +123,6 @@ int main()
 				}
 			}
 		}
-
-		// ctr++;
-		// gbn_sim->update_buffer(ctr,0);
 
 		if(succ_pckt_ctr == successful_pckts_num)
 			break;			
