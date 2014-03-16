@@ -252,6 +252,8 @@ int GBN_Simulator::update_window(int ctr, int rn)
 
 	itr++;
 
+	itr = itr >= window_size ? itr%(window_size) : itr;
+
 	shifting_size += itr;
 	cout << "successful pckts: " << itr << endl;
 
@@ -279,13 +281,18 @@ int GBN_Simulator::update_window(int ctr, int rn)
 	
 	ctr++;
 	ctr = ctr-(itr);
+	ctr = ctr >= window_size ? ctr%window_size : ctr;
+	ctr = ctr < 0 ? -1*ctr : ctr;
 
-	// ctr = ctr < 0 ? -1*ctr : ctr;
-	cout << "new ctr: " << ctr << endl;
+	cout << "updated SN index: " << ctr << endl;
+
+	// cout << "new ctr: " << ctr << endl;
 	
-	cout << "After SHIFT" << endl;
-	cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
-	// cout << "T[0] = " << pckt_T.at(0) << endl;
+	// cout << "After SHIFT" << endl;
+	// cout << "SN[0] = " << buffer.at(0)->get_frame_sn() << endl;
+	// // cout << "T[0] = " << pckt_T.at(0) << endl;
+
+	cout << "num successful pckts                   : " << shifting_size << endl;
 	print_buffer();
 	return ctr;
 }
@@ -409,7 +416,8 @@ void GBN_Simulator::receiver(int pckt_ctr)
 
 	if(frame_error == 1)
 	{		
-		ack_frame->set_sn(next_expected_frame);	//rn
+		// ack_frame->set_sn(next_expected_frame);	//rn
+		receive_num = next_expected_frame;
 	} 
 	else
 	{
@@ -419,7 +427,8 @@ void GBN_Simulator::receiver(int pckt_ctr)
 			// cout << "no error, incrementing rn.." << endl;
 			cout << "no data frame error, incrementing nef" << endl;
 			next_expected_frame = (next_expected_frame+1)%(window_size+1);
-			ack_frame->set_sn(next_expected_frame);	//rn
+			// ack_frame->set_sn(next_expected_frame);	//rn
+			receive_num = next_expected_frame;
 			// cout << "updated nef (assigning rn): " << next_expected_frame << endl;
 			// break;
 		}
@@ -459,7 +468,7 @@ Event* GBN_Simulator::send(int pckt_ctr)
 	if(ack_error == 0)
 	{
 		Event *ack = new Event(1, event_time, receive_num, ack_error);
-		receive_num	+= 1%(window_size+1);
+		// receive_num	+= 1%(window_size+1);
 		return ack;
 	}
 	else

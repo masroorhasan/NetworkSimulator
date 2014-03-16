@@ -95,7 +95,7 @@ void EventScheduler::purge_TO_event()
 	int itr = 0;
 	if(!_queue.empty())
 	{
-		cout << "Purging TIMEOUT" << endl;
+		// cout << "Purging TIMEOUT" << endl;
 		_queue.erase(
 				std::remove_if(_queue.begin(), _queue.end(),
 					is_to_event),
@@ -116,7 +116,8 @@ bool EventScheduler::is_ES_empty()
 
 void EventScheduler::print_ES()
 {
-	cout << "****Printing ES****" << endl;
+	cout << endl;
+	cout << "**Printing ES**" << endl;
 	if(!_queue.empty())
 	{	
 		for(std::list<Event*>::iterator it = _queue.begin(); it != _queue.end(); ++it)
@@ -125,9 +126,16 @@ void EventScheduler::print_ES()
 			if(e->get_event_type() == 0)
 				cout << "event: TIMEOUT Event" << endl;
 			else
-				cout << "event: ACK Event" << endl;
+			{
+				if(e->get_error_flag() == 0)
+					cout << "event: ACK Event" << endl;
+				else
+					cout << "event: NAK Event" << endl;
+			}
+				
 			cout << "rn: " << e->get_sn() << endl;
 			cout << "timestamp: " << e->get_time_stamp() << endl;
+
 		}
 	}
 	else
