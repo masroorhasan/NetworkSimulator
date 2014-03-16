@@ -11,27 +11,30 @@ using namespace std;
 /*
 	EVENT PROCESSOR
 */
-
-int main()
-{
-	// double tao = 0.005; 		//in ms, testing
-	double tao = 0.25;
-	int successful_pckts_num = 10000/2;
+	double tao = 0.000; 		//in ms, testing
+	// double tao = 0.25;
+	int successful_pckts_num = 10000;
 
 	//sender side input params
 	int header_length = 54;				//bytes
 	int pckt_length = 1500;				//bytes
-	double delta = 12.5 * tao;
+	double delta = 2.5 * tao;
 
 	//channel params
 	double transfer_rate = 5000000;		//C (bps)
-	double prop_delay = tao;			//Tao
-	double ber = 0.0001;				//BER
+	double prop_delay = 0.0;			//Tao
+	double ber = 0.00000;				//BER = 0
+	// double ber = 0.00001;			//BER = 1e-5
+	// double ber = 0.00010;			//BER = 1e-4
 
 
 	double clk = 0.0;
 	double timeout = 0.0;
-	
+
+void run_sim()
+{
+	prop_delay = tao;
+		
 	ABP_SIMULATOR * abp_sim = new ABP_SIMULATOR(delta, header_length, pckt_length,
 												transfer_rate, prop_delay, ber);
 	EventScheduler * ES = new EventScheduler();
@@ -166,6 +169,33 @@ int main()
 	cout << "tc: " << abp_sim->get_tc() << " s" << endl;
 	// cout << "throughput: " << (double)succ_pckt_ctr / abp_sim->get_tc() << " pckts/s" << endl;
 	cout << "throughput: " << (double)(succ_pckt_ctr*pckt_length*8.0) / abp_sim->get_tc() << " bits/s" << endl;
-	
+}
+
+void run(double error_rate)
+{
+	ber = error_rate;
+	for(double i = 2.5; i <= 12.5; i += 2.5)
+	{
+		cout << endl;
+		cout << "***EXPERIMENT***" << endl;
+		delta = i * tao;
+		run_sim();
+	}
+}
+
+int main()
+{
+	//2tao = 10 ms
+	tao = 0.005;
+	// run(0.00000);
+	// run(0.00001);
+	// run(0.00010);
+
+	// //2tao = 500 ms
+	tao = 0.25;
+	// run(0.00000);
+	// run(0.00001);
+	run(0.00010);
+
 	return 0;
 }

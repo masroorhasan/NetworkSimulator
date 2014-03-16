@@ -7,27 +7,29 @@
 
 using namespace std;
 
-	// double tao = 0.005;
-	double tao = 0.25;
+	double tao = 0.000;
+	// double tao = 0.25;
 	int successful_pckts_num = 10000;
 
 	//sender side input params
 	int pckt_header = 54;				//bytes
 	int pckt_length = 1500;				//bytes
-	double delta = 12.5 * tao;
-	// double delta = 0.0;
+	// double delta = 12.5 * tao;
+	double delta = 0.0;
 
 	//channel params
 	double transfer_rate = 5000000;		//C (bps)
-	double prop_delay = tao;			//Tao
-	// double ber = 0.00000;				//BER = 0
-	// double ber = 0.00001;				//BER = 1e-5
-	double ber = 0.00010;				//BER = 1e-4
+	double prop_delay = 0.0;			//Tao
+	double ber = 0.00000;				//BER = 0
+	// double ber = 0.00001;			//BER = 1e-5
+	// double ber = 0.00010;			//BER = 1e-4
 
 	int window_size = 4;				//N
 
 void run_sim()
 {
+	prop_delay = tao;
+
 	GBN_Simulator *gbn_sim = new GBN_Simulator(pckt_header, pckt_length, transfer_rate,
 												prop_delay, ber, window_size);
 	EventScheduler *ES = new EventScheduler();
@@ -41,7 +43,7 @@ void run_sim()
 	
 	while(ctr < window_size)
 	{
-		cout << "sending pckt: " << ctr << endl;
+		// cout << "sending pckt: " << ctr << endl;
 		//update transfer time for each pckt
 		//update global clk
 		gbn_sim->update_pckt_T(ctr, transfer_time);
@@ -69,18 +71,18 @@ void run_sim()
 		// cout << "even timestamp: " << event->get_time_stamp() << endl;
 		// cout << "global clk: " << gbn_sim->get_tc() << endl;
 
-		ES->print_ES();
+		// ES->print_ES();
 		
 		if(ctr == window_size-1)
 		{
 			//while check nak and mismatched rn
-			cout << "last pckt" << endl;
+			// cout << "last pckt" << endl;
 			gbn_sim->update_tc(event->get_time_stamp());
 
 			while(event->get_event_type() == 1 && (event->get_error_flag() == 1
 				|| gbn_sim->check_expected_acks(event->get_sn()) == false))
 			{
-				cout << "ignoring NAKs" << endl;
+				// cout << "ignoring NAKs" << endl;
 				//check for empty ES
 				
 				ES->get_front_event();
@@ -98,7 +100,7 @@ void run_sim()
 
 			if(event->get_event_type() == 0) 	//TIMEOUT
 			{
-				cout << "Processing TIMEOUT" << endl;
+				// cout << "Processing TIMEOUT" << endl;
 				ES->purge_TO_event();
 
 				//update T[i]'s, timeout and register new TO event
@@ -116,7 +118,7 @@ void run_sim()
 				if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
 				{
 					//ack
-					cout << "Processing ACK of rn = " << event->get_sn() << endl;
+					// cout << "Processing ACK of rn = " << event->get_sn() << endl;
 					ctr = gbn_sim->update_window(ctr, event->get_sn());
 					succ_pckt_ctr = gbn_sim->shift_size();
 					//set new timeout
@@ -132,7 +134,7 @@ void run_sim()
 				else
 				{
 					// cout << "ign NAK" << endl;
-					cout << "shouldnt be here" << endl;
+					// cout << "shouldnt be here" << endl;
 					// ES->get_front_event();
 				}
 			}
@@ -147,7 +149,7 @@ void run_sim()
 		{
 			if(event->get_event_type() == 0) 	//TIMEOUT
 			{
-				cout << "Processing TIMEOUT" << endl;
+				// cout << "Processing TIMEOUT" << endl;
 				ES->purge_TO_event();
 
 				//update T[i]'s
@@ -167,7 +169,7 @@ void run_sim()
 				if(event->get_error_flag() == 0 && gbn_sim->check_expected_acks(event->get_sn()) == true)
 				{
 					//ack
-					cout << "Processing ACK of rn = " << event->get_sn() << endl;
+					// cout << "Processing ACK of rn = " << event->get_sn() << endl;
 					ctr = gbn_sim->update_window(ctr, event->get_sn());
 					succ_pckt_ctr = gbn_sim->shift_size();
 					//set new timeout
@@ -183,7 +185,7 @@ void run_sim()
 				}
 				else
 				{
-					cout << "Ignoring NAK" << endl;
+					// cout << "Ignoring NAK" << endl;
 					ES->get_front_event();
 				}
 			}
@@ -197,31 +199,42 @@ void run_sim()
 		ctr++;
 	}
 	
-	cout << endl;
-	cout << endl;
-	cout << endl;
 	cout << "GBN" << endl;
 	cout << "2Tao: " << 2.0 * tao << " s" << endl;
+	cout << "delta/tao: " << delta / tao << endl;
 	cout << "ber: " << ber << endl;
-	// cout << "ITERATION " << itr << endl;
 	cout << "successful packet count: " << succ_pckt_ctr << endl;
 	cout << "tc: " << gbn_sim->get_tc() << " s" << endl;
-	// cout << "throughput: " << (double)succ_pckt_ctr / abp_sim->get_tc() << " pckts/s" << endl;
 	cout << "throughput: " << (double)(succ_pckt_ctr*pckt_length*8.0) / gbn_sim->get_tc() << " bits/s" << endl;
+	cout << endl;
+}
+
+void run(double error_rate)
+{
+	ber = error_rate;
+	for(double i = 2.5; i <= 12.5; i += 2.5)
+	{
+		cout << endl;
+		cout << "***EXPERIMENT***" << endl;
+		delta = i * tao;
+		run_sim();
+	}
 }
 
 int main()
 {
-	// double timeout = 0.0;
 
-	// for(double i = 2.5; i <= 12.5; i += 2.5)
-	{
-		cout << endl;
-		cout << "***EXPERIMENT***" << endl;
-		// cout << "itr: " << i << endl;
-		run_sim();
-		// cout << "itr: " << i << endl;
-	}
+	//2tao = 10 ms
+	// tao = 0.005;
+	// run(0.00000);
+	// run(0.00001);
+	// run(0.00010);
+
+	// //2tao = 500 ms
+	tao = 0.25;
+	// run(0.00000);
+	// run(0.00001);
+	run(0.00010);
 
     return 0;
 }
