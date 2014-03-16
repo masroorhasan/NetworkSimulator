@@ -7,8 +7,8 @@
 
 using namespace std;
 
-	double tao = 0.005;
-		// double tao = 0.25;
+	// double tao = 0.005;
+	double tao = 0.25;
 	int successful_pckts_num = 10000;
 
 	//sender side input params
@@ -21,8 +21,8 @@ using namespace std;
 	double transfer_rate = 5000000;		//C (bps)
 	double prop_delay = tao;			//Tao
 	// double ber = 0.00000;				//BER = 0
-	double ber = 0.00001;				//BER = 1e-5
-	// double ber = 0.00010;				//BER = 1e-4
+	// double ber = 0.00001;				//BER = 1e-5
+	double ber = 0.00010;				//BER = 1e-4
 
 	int window_size = 4;				//N
 
